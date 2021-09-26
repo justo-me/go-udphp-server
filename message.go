@@ -7,6 +7,7 @@ import (
 
 var (
 	ErrHeaderNotFound = errors.New("header not found")
+	ErrHandlerNotFound = errors.New("handler not found")
 )
 
 type Message interface {
@@ -15,6 +16,7 @@ type Message interface {
 	GetError() error
 	GetHeader(string) (string, error)
 	RawBody() []byte
-	GetAddr() *net.UDPAddr
+	GetAddr() net.Addr
+	SetAddr(net.Addr)
 	Bytes() []byte
 }

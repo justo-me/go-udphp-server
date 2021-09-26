@@ -2,13 +2,14 @@ package udphp
 
 import (
 	"encoding/json"
+	"errors"
 	"net"
 )
 
 type UDPMessage struct {
 	Path    string            `json:"path"`
 	PeerID  string            `json:"peerID"`
-	Error   error             `json:"error"`
+	Error   string            `json:"error"`
 	Headers map[string]string `json:"headers"`
 	Body    []byte            `json:"body"`
 	Addr    *net.UDPAddr
@@ -23,7 +24,11 @@ func (r *UDPMessage) GetPeerID() string {
 }
 
 func (r *UDPMessage) GetError() error {
-	return r.Error
+	if r.Error == "" {
+		return nil
+	}
+
+	return errors.New(r.Error)
 }
 
 func (r *UDPMessage) GetHeader(s string) (string, error) {
@@ -39,9 +44,13 @@ func (r *UDPMessage) RawBody() []byte {
 	return r.Body
 }
 
-func (r *UDPMessage) GetAddr() *net.UDPAddr {
+func (r *UDPMessage) GetAddr() net.Addr {
 	return r.Addr
 }
+func (r *UDPMessage) SetAddr(addr net.Addr) {
+	r.Addr = addr.(*net.UDPAddr)
+}
+
 func (r *UDPMessage) Bytes() []byte {
 	b, _ := json.Marshal(r)
 	return b
@@ -57,5 +66,5 @@ func NewUDPMessage(request []byte) (Message, error) {
 }
 
 func NewUDPErrMessage(err error) Message {
-	return &UDPMessage{Error: err}
+	return &UDPMessage{Error: err.Error()}
 }
