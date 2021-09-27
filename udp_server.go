@@ -54,6 +54,15 @@ func (s *UDPServer) CreateConnection(addr net.Addr) (Connection, error) {
 	return c, nil
 }
 
+func (s *UDPServer) GetPeers() []*Peer {
+	peers := make([]*Peer, 0, len(s.peers))
+	for _, p := range s.peers {
+		peers = append(peers, p)
+	}
+
+	return peers
+}
+
 func (s *UDPServer) Stop() {
 	close(s.exit)
 	s.wg.Wait()

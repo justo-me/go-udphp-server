@@ -14,5 +14,6 @@ type Server interface {
 	Listen()
 	CreateConnection(addr net.Addr) (Connection, error)
 	Handle(path string, handlerFunc HandlerFunc)
+	GetPeers() []*Peer
 }
 
