@@ -29,8 +29,8 @@ type UDPClient struct {
 	connectedCallback  func(Client)
 }
 
-func (c *UDPClient) Handle(path string, handlerFunc HandlerFunc) {
-	c.s.Handle(path, handlerFunc)
+func (c *UDPClient) Handle(handler *Handler) {
+	c.s.Handle(handler)
 }
 
 func (c *UDPClient) WasKeySent() bool {
@@ -164,7 +164,6 @@ func (c *UDPClient) OnConnected(f func(Client)) {
 }
 
 func (c *UDPClient) greetingHandler(ctx context.Context, serverConn Connection, req Message) (Message, error) {
-
 
 	self := c.GetSelf()
 	if req.GetError() != nil {
@@ -312,11 +311,15 @@ func NewUDPClient(ID string, s Server, sAddr *net.UDPAddr,
 		registeredCallback: func(client Client) {},
 	}
 
-	c.Handle(RouteGreeting, c.greetingHandler)
-	c.Handle(RouteRegister, c.registerHandler)
-	c.Handle(RouteEstablish, c.establishHandler)
-	c.Handle(RouteConnect, c.connectHandler)
-	c.Handle(RouteKey, c.keyHandler)
+	h := NewHandler()
+
+	h.Handle(RouteGreeting, c.greetingHandler)
+	h.Handle(RouteRegister, c.registerHandler)
+	h.Handle(RouteEstablish, c.establishHandler)
+	h.Handle(RouteConnect, c.connectHandler)
+	h.Handle(RouteKey, c.keyHandler)
+
+	c.Handle(h)
 
 	return c, nil
 }

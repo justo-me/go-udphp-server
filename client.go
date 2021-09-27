@@ -22,5 +22,5 @@ type Client interface {
 	OnRegistered(func(Client))
 	OnConnecting(func(Client))
 	OnConnected(func(Client))
-	Handle(path string, handlerFunc HandlerFunc)
+	Handle(handler *Handler)
 }

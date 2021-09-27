@@ -13,7 +13,7 @@ type Server interface {
 	Stop()
 	Listen()
 	CreateConnection(addr net.Addr) (Connection, error)
-	Handle(path string, handlerFunc HandlerFunc)
+	Handle(handler *Handler)
 	GetPeers() []*Peer
 }
 

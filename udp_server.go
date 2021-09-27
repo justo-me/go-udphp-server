@@ -74,8 +74,11 @@ func (s *UDPServer) Listen() {
 	s.receiver()
 }
 
-func (s *UDPServer) Handle(path string, handlerFunc HandlerFunc) {
-	s.handlers[path] = handlerFunc
+func (s *UDPServer) Handle(handler *Handler) {
+	handlers := handler.Handlers()
+	for path, handlerFunc := range handlers {
+		s.handlers[path] = handlerFunc
+	}
 }
 
 func (s *UDPServer) sender() {
@@ -271,10 +274,14 @@ func NewUDPServer(udpAddr *net.UDPAddr, publicKey []byte, privateKey []byte) (Se
 		privateKey:  privateKey,
 	}
 
-	s.Handle(RouteGreeting, s.greetingHandler)
-	s.Handle(RouteRegister, s.registerHandler)
-	s.Handle(RouteEstablish, s.establishHandler)
-	s.Handle(RouteNotFound, s.notFoundHandler)
+	h := NewHandler()
+
+	h.Handle(RouteGreeting, s.greetingHandler)
+	h.Handle(RouteRegister, s.registerHandler)
+	h.Handle(RouteEstablish, s.establishHandler)
+	h.Handle(RouteNotFound, s.notFoundHandler)
+
+	s.Handle(h)
 
 	return s, nil
 }
