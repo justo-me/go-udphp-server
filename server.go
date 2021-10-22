@@ -14,6 +14,5 @@ type Server interface {
 	Listen()
 	CreateConnection(addr net.Addr) (Connection, error)
 	Handle(handler *Handler)
-	GetPeers() []*Peer
+	PeerRepository(repository PeerRepository)
 }
-

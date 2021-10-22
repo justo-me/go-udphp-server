@@ -56,11 +56,8 @@ func (s *UDPServer) CreateConnection(addr net.Addr) (Connection, error) {
 	return c, nil
 }
 
-func (s *UDPServer) GetPeers() []*Peer {
-	// todo handle error and utilize context
-	peers, _ := s.peers.GetAll(context.Background())
-
-	return peers
+func (s *UDPServer) PeerRepository(repository PeerRepository) {
+	s.peers = repository
 }
 
 func (s *UDPServer) Stop() {
