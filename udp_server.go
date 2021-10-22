@@ -13,6 +13,8 @@ import (
 
 var (
 	ErrAddMustBeUDPAddr = errors.New("could not assert net.Addr to *net.UDPAddr")
+
+	DefaultPeerRepository = NewPeerMemoryRepository
 )
 
 const (
@@ -31,7 +33,7 @@ type UDPServer struct {
 	send     chan Message
 	handlers map[string]HandlerFunc
 
-	peers map[string]*Peer
+	peers PeerRepository
 
 	publicKey  []byte
 	privateKey []byte
@@ -55,10 +57,8 @@ func (s *UDPServer) CreateConnection(addr net.Addr) (Connection, error) {
 }
 
 func (s *UDPServer) GetPeers() []*Peer {
-	peers := make([]*Peer, 0, len(s.peers))
-	for _, p := range s.peers {
-		peers = append(peers, p)
-	}
+	// todo handle error and utilize context
+	peers, _ := s.peers.GetAll(context.Background())
 
 	return peers
 }
@@ -90,14 +90,9 @@ func (s *UDPServer) sender() {
 		case <-s.exit:
 			return
 		case m := <-s.send:
-			fmt.Println(m.GetPath())
-			fmt.Println(m.GetError())
-			fmt.Println(string(m.RawBody()))
-			fmt.Println(m.GetAddr().(*net.UDPAddr).String())
-
 			_, err := s.conn.WriteToUDP(m.Bytes(), m.GetAddr().(*net.UDPAddr))
 			if err != nil {
-
+				// todo add error check
 			}
 		}
 	}
@@ -206,9 +201,13 @@ func (s *UDPServer) greetingHandler(ctx context.Context, serverConn Connection, 
 
 func (s *UDPServer) registerHandler(ctx context.Context, serverConn Connection, req Message) (Message, error) {
 
-	s.peers[req.GetPeerID()] = &Peer{
+	err := s.peers.Create(ctx, &Peer{
 		ID:   req.GetPeerID(),
 		Addr: serverConn.GetAddr().(*net.UDPAddr),
+	})
+
+	if err != nil {
+		return nil, err
 	}
 
 	return &UDPMessage{
@@ -222,16 +221,16 @@ func (s *UDPServer) notFoundHandler(ctx context.Context, serverConn Connection, 
 
 func (s *UDPServer) establishHandler(ctx context.Context, serverConn Connection, req Message) (Message, error) {
 
-	rp, ok := s.peers[req.GetPeerID()]
-	if !ok {
-		return nil, errors.New("client is not registered with this server")
+	rp, err := s.peers.Get(ctx, req.GetPeerID())
+	if err != nil {
+		return nil, fmt.Errorf("client is not registered with this server: %w", err)
 	}
 
 	id := string(req.RawBody())
 
-	op, ok := s.peers[id]
-	if !ok {
-		return nil, errors.New("client is not registered with this server")
+	op, err := s.peers.Get(ctx, id)
+	if err != nil {
+		return nil, fmt.Errorf("client is not registered with this server: %w", err)
 	}
 
 	connStr := op.Addr.String()
@@ -241,7 +240,7 @@ func (s *UDPServer) establishHandler(ctx context.Context, serverConn Connection,
 		return nil, errors.New("could not resolve peer connection")
 	}
 
-	err := conn.Send(&UDPMessage{
+	err = conn.Send(&UDPMessage{
 		Path: RouteEstablish,
 		Body: MustJson(rp),
 	})
@@ -269,7 +268,7 @@ func NewUDPServer(udpAddr *net.UDPAddr, publicKey []byte, privateKey []byte) (Se
 		send:        make(chan Message, 100),
 		handlers:    make(map[string]HandlerFunc),
 		connections: make(map[string]Connection),
-		peers:       make(map[string]*Peer),
+		peers:       DefaultPeerRepository(),
 		publicKey:   publicKey,
 		privateKey:  privateKey,
 	}
