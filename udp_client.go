@@ -38,7 +38,7 @@ func (c *UDPClient) Handle(handler *Handler) {
 }
 
 func (c *UDPClient) WasKeySent(id string) bool {
-	b, _ := c.keySent.Load(id)
+	b, _ := c.keySent.LoadOrStore(id, false)
 	return b.(bool)
 }
 
@@ -47,7 +47,7 @@ func (c *UDPClient) SetKeySent(id string, b bool) {
 }
 
 func (c *UDPClient) WasKeyReceived(id string) bool {
-	b, _ := c.keyReceived.Load(id)
+	b, _ := c.keyReceived.LoadOrStore(id, false)
 	return b.(bool)
 }
 
