@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -17,15 +18,15 @@ var (
 type UDPClient struct {
 	self *Peer
 
-	peer map[string]*Peer
+	peer sync.Map
 
-	keySent     map[string]bool
-	keyReceived map[string]bool
+	keySent     sync.Map
+	keyReceived sync.Map
 	s           Server
 	sAddr       *net.UDPAddr
 	sConn       Connection
 
-	pConn map[string]Connection
+	pConn sync.Map
 
 	registeredCallback func(Client)
 	connectingCallback func(Client)
@@ -37,21 +38,21 @@ func (c *UDPClient) Handle(handler *Handler) {
 }
 
 func (c *UDPClient) WasKeySent(id string) bool {
-	b, _ := c.keySent[id]
-	return b
+	b, _ := c.keySent.Load(id)
+	return b.(bool)
 }
 
 func (c *UDPClient) SetKeySent(id string, b bool) {
-	c.keySent[id] = b
+	c.keySent.Store(id, b)
 }
 
 func (c *UDPClient) WasKeyReceived(id string) bool {
-	b, _ := c.keyReceived[id]
-	return b
+	b, _ := c.keyReceived.Load(id)
+	return b.(bool)
 }
 
 func (c *UDPClient) SetKeyReceived(id string, b bool) {
-	c.keyReceived[id] = b
+	c.keyReceived.Store(id, b)
 }
 
 func (c *UDPClient) GetServer() Server {
@@ -63,29 +64,29 @@ func (c *UDPClient) GetSelf() *Peer {
 }
 
 func (c *UDPClient) GetPeer(id string) (*Peer, error) {
-	p, ok := c.peer[id]
+	p, ok := c.peer.Load(id)
 	if !ok {
 		return nil, ErrPeerNotFound
 	}
 
-	return p, nil
+	return p.(*Peer), nil
 }
 
 func (c *UDPClient) SetPeer(peer *Peer) {
-	c.peer[peer.ID] = peer
+	c.peer.Store(peer.ID, peer)
 }
 
 func (c *UDPClient) GetPeerConn(id string) (Connection, error) {
-	conn, ok := c.pConn[id]
+	conn, ok := c.pConn.Load(id)
 	if !ok {
 		return nil, ErrPeerConnectionNotFound
 	}
 
-	return conn, nil
+	return conn.(Connection), nil
 }
 
 func (c *UDPClient) SetPeerConn(id string, connection Connection) {
-	c.pConn[id] = connection
+	c.pConn.Store(id, connection)
 }
 
 func (c *UDPClient) GetServerConn() Connection {
@@ -326,11 +327,11 @@ func NewUDPClient(ID string, s Server, sAddr *net.UDPAddr,
 	c := &UDPClient{
 		s:           s,
 		self:        self,
-		peer:        make(map[string]*Peer),
-		pConn:       make(map[string]Connection),
+		peer:        sync.Map{},
+		pConn:       sync.Map{},
 		sAddr:       sAddr,
-		keyReceived: make(map[string]bool),
-		keySent:     make(map[string]bool),
+		keyReceived: sync.Map{},
+		keySent:     sync.Map{},
 
 		connectedCallback:  func(client Client) {},
 		connectingCallback: func(client Client) {},
