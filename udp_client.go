@@ -17,15 +17,15 @@ var (
 type UDPClient struct {
 	self *Peer
 
-	peer *Peer
+	peer map[string]*Peer
 
-	keySent     bool
-	keyReceived bool
+	keySent     map[string]bool
+	keyReceived map[string]bool
 	s           Server
 	sAddr       *net.UDPAddr
 	sConn       Connection
 
-	pConn Connection
+	pConn map[string]Connection
 
 	registeredCallback func(Client)
 	connectingCallback func(Client)
@@ -36,20 +36,22 @@ func (c *UDPClient) Handle(handler *Handler) {
 	c.s.Handle(handler)
 }
 
-func (c *UDPClient) WasKeySent() bool {
-	return c.keySent
+func (c *UDPClient) WasKeySent(id string) bool {
+	b, _ := c.keySent[id]
+	return b
 }
 
-func (c *UDPClient) SetKeySent(b bool) {
-	c.keySent = b
+func (c *UDPClient) SetKeySent(id string, b bool) {
+	c.keySent[id] = b
 }
 
-func (c *UDPClient) WasKeyReceived() bool {
-	return c.keyReceived
+func (c *UDPClient) WasKeyReceived(id string) bool {
+	b, _ := c.keyReceived[id]
+	return b
 }
 
-func (c *UDPClient) SetKeyReceived(b bool) {
-	c.keyReceived = b
+func (c *UDPClient) SetKeyReceived(id string, b bool) {
+	c.keyReceived[id] = b
 }
 
 func (c *UDPClient) GetServer() Server {
@@ -60,20 +62,30 @@ func (c *UDPClient) GetSelf() *Peer {
 	return c.self
 }
 
-func (c *UDPClient) GetPeer() *Peer {
-	return c.peer
+func (c *UDPClient) GetPeer(id string) (*Peer, error) {
+	p, ok := c.peer[id]
+	if !ok {
+		return nil, ErrPeerNotFound
+	}
+
+	return p, nil
 }
 
 func (c *UDPClient) SetPeer(peer *Peer) {
-	c.peer = peer
+	c.peer[peer.ID] = peer
 }
 
-func (c *UDPClient) GetPeerConn() Connection {
-	return c.pConn
+func (c *UDPClient) GetPeerConn(id string) (Connection, error) {
+	conn, ok := c.pConn[id]
+	if !ok {
+		return nil, ErrPeerConnectionNotFound
+	}
+
+	return conn, nil
 }
 
-func (c *UDPClient) SetPeerConn(connection Connection) {
-	c.pConn = connection
+func (c *UDPClient) SetPeerConn(id string, connection Connection) {
+	c.pConn[id] = connection
 }
 
 func (c *UDPClient) GetServerConn() Connection {
@@ -84,14 +96,17 @@ func (c *UDPClient) SetServerConn(connection Connection) {
 	c.sConn = connection
 }
 
-func (c *UDPClient) Connect() error {
+func (c *UDPClient) Connect(id string) error {
 
 	c.ConnectingCallback()
 
 	self := c.GetSelf()
-	pConn := c.GetPeerConn()
+	pConn, err := c.GetPeerConn(id)
+	if err != nil {
+		return err
+	}
 
-	err := pConn.Send(&UDPMessage{
+	err = pConn.Send(&UDPMessage{
 		Path: RouteConnect,
 		Body: []byte(self.ID),
 	})
@@ -107,7 +122,7 @@ func (c *UDPClient) Connect() error {
 		case <-timeout:
 			return ErrPeerConnectionTimeout
 		case <-tick:
-			if c.WasKeyReceived() {
+			if c.WasKeyReceived(id) {
 				c.ConnectedCallback()
 				return nil
 			}
@@ -202,7 +217,11 @@ func (c *UDPClient) connectHandler(ctx context.Context, serverConn Connection, r
 
 	self := c.GetSelf()
 
-	pConn := c.GetPeerConn()
+	pConn, err := c.GetPeerConn(req.GetPeerID())
+	if err != nil {
+		return nil, err
+	}
+
 	if pConn != serverConn {
 		if pConn.GetAddr().String() == serverConn.GetAddr().String() {
 			pConn = serverConn
@@ -213,7 +232,7 @@ func (c *UDPClient) connectHandler(ctx context.Context, serverConn Connection, r
 
 	pubKey := self.PublicKey
 
-	c.SetKeySent(true)
+	c.SetKeySent(req.GetPeerID(), true)
 
 	return &UDPMessage{
 		Path:   RouteKey,
@@ -233,7 +252,10 @@ func (c *UDPClient) registerHandler(ctx context.Context, serverConn Connection, 
 
 func (c *UDPClient) keyHandler(ctx context.Context, serverConn Connection, req Message) (Message, error) {
 
-	pConn := c.GetPeerConn()
+	pConn, err := c.GetPeerConn(req.GetPeerID())
+	if err != nil {
+		return nil, err
+	}
 
 	if pConn != serverConn {
 		return nil, errors.New("received key message from unknown peer")
@@ -255,7 +277,7 @@ func (c *UDPClient) keyHandler(ctx context.Context, serverConn Connection, req M
 	}
 	pConn.SetSecret(sharedSecret)
 
-	c.SetKeyReceived(true)
+	c.SetKeyReceived(req.GetPeerID(), true)
 
 	return nil, nil
 }
@@ -282,9 +304,9 @@ func (c *UDPClient) establishHandler(ctx context.Context, serverConn Connection,
 		return nil, err
 	}
 
-	c.SetPeerConn(pCon)
+	c.SetPeerConn(p.ID, pCon)
 
-	err = c.Connect()
+	err = c.Connect(p.ID)
 	if err != nil {
 		return nil, err
 	}
@@ -302,10 +324,13 @@ func NewUDPClient(ID string, s Server, sAddr *net.UDPAddr,
 	self.ID = ID
 
 	c := &UDPClient{
-		s:     s,
-		self:  self,
-		peer:  &Peer{},
-		sAddr: sAddr,
+		s:           s,
+		self:        self,
+		peer:        make(map[string]*Peer),
+		pConn:       make(map[string]Connection),
+		sAddr:       sAddr,
+		keyReceived: make(map[string]bool),
+		keySent:     make(map[string]bool),
 
 		connectedCallback:  func(client Client) {},
 		connectingCallback: func(client Client) {},
