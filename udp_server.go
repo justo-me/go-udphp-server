@@ -150,7 +150,6 @@ func (s *UDPServer) serve(b []byte, c Connection) {
 
 func (s *UDPServer) handleMessage(m Message, c Connection) {
 
-	fmt.Println(m.GetPath())
 	h, ok := s.handlers[m.GetPath()]
 	if !ok {
 		return

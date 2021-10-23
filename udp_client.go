@@ -15,14 +15,17 @@ var (
 )
 
 type UDPClient struct {
-	self        *Peer
-	peer        *Peer
+	self *Peer
+
+	peer *Peer
+
 	keySent     bool
 	keyReceived bool
 	s           Server
 	sAddr       *net.UDPAddr
 	sConn       Connection
-	pConn       Connection
+
+	pConn Connection
 
 	registeredCallback func(Client)
 	connectingCallback func(Client)
@@ -187,8 +190,6 @@ func (c *UDPClient) greetingHandler(ctx context.Context, serverConn Connection, 
 	}
 
 	serverConn.SetSecret(sharedSecret)
-
-	fmt.Println(sharedSecret)
 
 	return &UDPMessage{
 		Path:   RouteRegister,
