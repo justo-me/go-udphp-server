@@ -1,19 +1,19 @@
 package udphp
 
 type Client interface {
-	WasKeySent() bool
-	SetKeySent(bool)
-	WasKeyReceived() bool
-	SetKeyReceived(bool)
+	WasKeySent(string) bool
+	SetKeySent(string, bool)
+	WasKeyReceived(string) bool
+	SetKeyReceived(string, bool)
 	GetServer() Server
 	GetSelf() *Peer
-	GetPeer() *Peer
+	GetPeer(id string) (*Peer, error)
 	SetPeer(*Peer)
-	GetPeerConn() Connection
-	SetPeerConn(Connection)
+	GetPeerConn(id string) (Connection, error)
+	SetPeerConn(string, Connection)
 	GetServerConn() Connection
 	SetServerConn(Connection)
-	Connect() error
+	Connect(id string) error
 	Stop()
 	Start() error
 	RegisteredCallback()

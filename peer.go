@@ -7,7 +7,8 @@ import (
 )
 
 var (
-	ErrPeerNotFound = errors.New("peer not found")
+	ErrPeerNotFound           = errors.New("peer not found")
+	ErrPeerConnectionNotFound = errors.New("peer connection not found")
 )
 
 type PeerRepository interface {
